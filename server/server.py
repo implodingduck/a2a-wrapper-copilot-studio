@@ -138,9 +138,9 @@ api_key = os.getenv('API_KEY', '')
 if __name__ == '__main__':
     # --8<-- [start:AgentSkill]
     skill = AgentSkill(
-        id='echo',
-        name='Echo Skill',
-        description='Echoes the input text',
+        id='CopilotStudioInvokeSkill',
+        name='Invoke Skill',
+        description='Invokes a copilot studio agent',
         tags=['echo', 'test'],
         examples=['hi', 'hello world'],
     )
@@ -148,21 +148,16 @@ if __name__ == '__main__':
     # --8<-- [start:AgentCard]
     # This will be the public-facing agent card
     public_agent_card = AgentCard(
-        name='Echo Agent',
-        description='Just an echo agent',
+        name='Copilot Studio Agent',
+        description='An agent that invokes Copilot Studio capabilities',
         url=f'{url}',
         version='1.0.0',
         default_input_modes=['text'],
         default_output_modes=['text'],
         capabilities=AgentCapabilities(streaming=True),
         skills=[skill],  # Only the basic skill for the public card
-        security=[{ "api-key": [], "entra": [] }],
+        security=[{ "entra": [] }],
         security_schemes={
-            "api-key": APIKeySecurityScheme(
-                type="apiKey",
-                name="X-API-Key",
-                in_="header",
-            ),
             "entra": OAuth2SecurityScheme(
                 type="oauth2",
                 flows=OAuthFlows(
@@ -170,7 +165,7 @@ if __name__ == '__main__':
                         authorizationUrl=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize",
                         tokenUrl=f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token",
                         scopes={
-                            "https://api.powerplatform.com/.default": "Access to Power Platform APIs"
+                            f"api://{client_id}/invoke": "Access to invoke the Copilot Studio Agent"
                         }
                     )
                 )
