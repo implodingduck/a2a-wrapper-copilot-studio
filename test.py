@@ -1,10 +1,17 @@
+from ast import List
 import logging
 
+import os
+from typing import List
+import random
 from uuid import uuid4
 
 import httpx
 
+import uvicorn
+
 from a2a.client import A2ACardResolver, ClientConfig, ClientFactory
+from a2a.client.errors import A2AClientHTTPError
 from a2a.types import (
     AgentCard,
     Message,
@@ -13,6 +20,53 @@ from a2a.utils.constants import (
     AGENT_CARD_WELL_KNOWN_PATH,
     EXTENDED_AGENT_CARD_PATH,
 )
+from dotenv import load_dotenv
+from msal import PublicClientApplication
+
+load_dotenv()
+
+tenant_id = os.getenv('COPILOTSTUDIOAGENT__TENANTID')
+client_id = os.getenv('COPILOTSTUDIOAGENT__AGENTAPPID')
+
+authority = f"https://login.microsoftonline.com/{tenant_id}"
+scopes = [f"api://{client_id}/invoke"]
+
+
+app: PublicClientApplication = PublicClientApplication(client_id, authority=authority)
+
+# Function with type hints for return value and parameters
+def acquire_token(app: PublicClientApplication, scopes: List[str]):
+    accounts = app.get_accounts()
+    if accounts:
+        return app.acquire_token_silent(scopes, account=accounts[0])
+    return app.acquire_token_interactive(scopes=scopes)
+
+
+async def call_a2a(query: str, httpx_client: httpx.AsyncClient, agent_card: AgentCard):
+    
+    # Acquire token
+    token_response = acquire_token(app, scopes)
+    if token_response and "access_token" in token_response:
+        print("Access Token:", token_response["access_token"])
+        access_token = token_response["access_token"]
+
+    httpx_client.headers.update({'Authorization': f'Bearer {access_token}'})
+    httpx_client.headers.update({'X-API-Key': os.getenv('API_KEY', 'your-secret-api-key-here')})
+    config = ClientConfig(httpx_client=httpx_client)
+    factory = ClientFactory(config)
+    client = factory.create(agent_card)
+
+    message = Message(
+        role='user',
+        parts=[{'kind': 'text', 'text': query}],
+        message_id=uuid4().hex,
+    )
+
+    try:
+        async for response in client.send_message(message):
+            print(response)
+    except A2AClientHTTPError as e:
+        print(f"Error during send_message: {e.status_code} - {e.message}")
 
 
 async def main() -> None:
@@ -22,9 +76,9 @@ async def main() -> None:
 
     # --8<-- [start:A2ACardResolver]
 
-    base_url = 'http://localhost:8000'
+    base_url = os.getenv('BASE_URL', 'http://localhost:8000')
 
-    async with httpx.AsyncClient() as httpx_client:
+    async with httpx.AsyncClient(timeout=60) as httpx_client:
         # Initialize A2ACardResolver
         resolver = A2ACardResolver(
             httpx_client=httpx_client,
@@ -98,42 +152,12 @@ async def main() -> None:
                 'Failed to fetch the public agent card. Cannot continue.'
             ) from e
 
-        # set x-api-key header for all requests from this client
-        httpx_client.headers.update({'X-API-Key': '123'})
-        # --8<-- [start:send_message]
-        config = ClientConfig(httpx_client=httpx_client)
-        factory = ClientFactory(config)
-        client = factory.create(final_agent_card_to_use)
-        
-
-        logger.info('Client initialized using ClientFactory.')
-
-        # Create a Message object directly
-        message = Message(
-            role='user',
-            parts=[{'kind': 'text', 'text': 'how much is 10 USD in INR?'}],
-            message_id=uuid4().hex,
+        await call_a2a(
+            query='How can I create an Azure Container app?',
+            httpx_client=httpx_client,
+            agent_card=final_agent_card_to_use,
         )
-
-        # send_message takes a Message directly and returns an async generator
-        async for response in client.send_message(message):
-            print(response)
-        # --8<-- [end:send_message]
-
-        # --8<-- [start:send_message_streaming]
-        # Same API for both streaming and non-streaming
-        message2 = Message(
-            role='user',
-            parts=[{'kind': 'text', 'text': 'what is the weather today?'}],
-            message_id=uuid4().hex,
-        )
-
-        async for chunk in client.send_message(message2):
-            print(chunk)
-        # --8<-- [end:send_message_streaming]
-
 
 if __name__ == '__main__':
     import asyncio
-
     asyncio.run(main())

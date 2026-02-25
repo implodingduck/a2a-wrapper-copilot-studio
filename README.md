@@ -1,3 +1,3 @@
-# generic-a2a-wrapper
+# a2a-wrapper-copilot-studio
 
-Basic A2A echo agent that can be used as a starting point for other A2A servers
+A wrapper to allow calling Copilot Studio Agents via A2A protocol.

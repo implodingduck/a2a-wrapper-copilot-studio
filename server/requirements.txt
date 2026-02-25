@@ -1,2 +1,7 @@
 a2a-sdk[http-server]>=0.3.0
 uvicorn
+microsoft-agents-activity
+microsoft-agents-copilotstudio-client
+msal
+aiohttp
+PyJWT
