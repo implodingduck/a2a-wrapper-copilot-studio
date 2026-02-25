@@ -61,6 +61,7 @@ class OAuthMiddleware(BaseHTTPMiddleware):
             return await call_next(request)
         
 
+        logger.info(f"Incoming request: {request.method} {request.url.path}")
         # Check for Authorization header
         auth_header = request.headers.get("Authorization")
 
@@ -71,6 +72,7 @@ class OAuthMiddleware(BaseHTTPMiddleware):
         }
         
         if not auth_header or not auth_header.startswith("Bearer "):
+            logger.info("Authorization header missing or does not start with 'Bearer '")
             return JSONResponse(
                 status_code=401,
                 content={"error": "Unauthorized", "message": "Bearer token is required in the Authorization header"},
@@ -80,6 +82,7 @@ class OAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header.split(" ")[1]
         auth_header = request.headers.get('Authorization')
         try:
+            logger.info(f"Authorization header: {auth_header}")
             token = auth_header.split(' ')[1]
             print(token)
             #print(settings.CLIENT_ID)
@@ -88,6 +91,7 @@ class OAuthMiddleware(BaseHTTPMiddleware):
             claims = jwt.decode(token,key=self.jwt_keys[kid], algorithms=[alg], audience=[client_id])
             print(claims)
         except Exception as e:
+            logger.error(f"Error decoding token: {e}")
             return JSONResponse(status_code=401, content={"message": f"Error: {e}"}, headers=response_headers)
         
         # Here you would implement your token validation logic
