@@ -1,3 +1,4 @@
+import time
 import json
 import logging
 import os
@@ -91,9 +92,12 @@ class OAuthMiddleware(BaseHTTPMiddleware):
             kid = jwt.get_unverified_header(token)['kid']
             claims = jwt.decode(token,key=self.jwt_keys[kid], algorithms=[alg], audience=[client_id])
             print(claims)
+            # validate the expiration, etc.
+            if claims.get("exp") < int(time.time()):
+                raise Exception("Token has expired")
         except Exception as e:
             logger.error(f"Error decoding token: {e}")
-            return JSONResponse(status_code=401, content={"message": f"Error: {e}"}, headers=response_headers)
+            return JSONResponse(status_code=403, content={"message": f"Error: {e}"}, headers=response_headers)
         
         # Here you would implement your token validation logic
         # For example, you could validate the token with Azure AD or another identity provider
