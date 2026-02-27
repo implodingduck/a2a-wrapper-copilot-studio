@@ -6,9 +6,11 @@ import requests
 import uvicorn
 
 from cryptography.hazmat.primitives import serialization
+from starlette.applications import Starlette
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+from starlette.routing import Route
 from a2a.server.apps import A2AStarletteApplication
 from a2a.server.request_handlers import DefaultRequestHandler
 from a2a.server.tasks import InMemoryTaskStore
@@ -22,7 +24,7 @@ from a2a.types import (
     OAuthFlows
 )
 from .agent_executor import (
-    CopilotStudioAgentExecutor,  # type: ignore[import-untyped]
+    create_generic_agent_executor,  # type: ignore[import-untyped]
 )
 
 logging.basicConfig(
@@ -177,8 +179,10 @@ if __name__ == '__main__':
         }
     )
 
+    agent_executor = create_generic_agent_executor(public_agent_card)
+
     request_handler = DefaultRequestHandler(
-        agent_executor=CopilotStudioAgentExecutor(),
+        agent_executor=agent_executor,
         task_store=InMemoryTaskStore(),
     )
 
@@ -186,9 +190,16 @@ if __name__ == '__main__':
         agent_card=public_agent_card,
         http_handler=request_handler,
     )
+    routes = server.routes()
+
+    async def health_check(request: Request):
+        return JSONResponse(content={"status": "ok"})
+    
+    routes.append(Route(path='/healthz', methods=['GET'], endpoint=health_check))
+
     
     # Build the app and add authentication middleware
-    app = server.build()
+    app = Starlette(routes=routes)
     
     # Add API key authentication middleware if API_KEY is configured
     if os.getenv('COPILOTSTUDIOAGENT__CLIENTSECRET'):
