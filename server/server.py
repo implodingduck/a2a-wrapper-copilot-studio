@@ -58,12 +58,11 @@ class OAuthMiddleware(BaseHTTPMiddleware):
             #print("-------------")
         
     async def dispatch(self, request: Request, call_next):
-
+        logger.info(f"Incoming request: {request.method} {request.url.path}")
+        logger.info(f"Incoming headers: {request.headers}")
         if (request.url.path == "/.well-known/agent-card.json" and request.method == "GET"):
             return await call_next(request)
         
-
-        logger.info(f"Incoming request: {request.method} {request.url.path}")
         # Check for Authorization header
         auth_header = request.headers.get("Authorization")
 
