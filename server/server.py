@@ -84,7 +84,7 @@ class OAuthMiddleware(BaseHTTPMiddleware):
         token = auth_header.split(" ")[1]
         auth_header = request.headers.get('Authorization')
         try:
-            logger.info(f"Authorization header: {auth_header}")
+            logger.debug(f"Authorization header: {auth_header}")
             token = auth_header.split(' ')[1]
             print(token)
             #print(settings.CLIENT_ID)
@@ -93,20 +93,13 @@ class OAuthMiddleware(BaseHTTPMiddleware):
             claims = jwt.decode(token,key=self.jwt_keys[kid], algorithms=[alg], audience=[client_id])
             print(claims)
             # validate the expiration, etc.
+            if claims.get("aud") != client_id:
+                raise Exception("Invalid audience")
             if claims.get("exp") < int(time.time()):
                 raise Exception("Token has expired")
         except Exception as e:
             logger.error(f"Error decoding token: {e}")
             return JSONResponse(status_code=403, content={"message": f"Error: {e}"}, headers=response_headers)
-        
-        # Here you would implement your token validation logic
-        # For example, you could validate the token with Azure AD or another identity provider
-        
-        # If token is invalid:
-        # return JSONResponse(
-        #     status_code=403,
-        #     content={"error": "Forbidden", "message": "Invalid or expired token"}
-        # )
         
         return await call_next(request)
 

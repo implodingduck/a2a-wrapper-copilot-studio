@@ -59,18 +59,17 @@ class CopilotStudioAgent:
             custom_power_platform_cloud=None,
         )
         logger.info(f"Configuring settings...")
-        logger.info(f"Got MCP ...")
         confidentialcredential = msal.ConfidentialClientApplication(
             os.environ.get("COPILOTSTUDIOAGENT__AGENTAPPID"),
             authority=f"https://login.microsoftonline.com/{os.environ.get('COPILOTSTUDIOAGENT__TENANTID')}",
             client_credential=os.environ.get("COPILOTSTUDIOAGENT__CLIENTSECRET")
         )
-        logger.info(f"Acquiring Copilot Studio token on behalf of MCP token...")
+        logger.info(f"Acquiring Copilot Studio token on behalf of users access token...")
         copilottoken = confidentialcredential.acquire_token_on_behalf_of(
             user_assertion=access_token,
             scopes=["https://api.powerplatform.com/.default"]
         )
-        logger.info(f"Acquired Copilot Studio token: {copilottoken}")
+        logger.debug(f"Acquired Copilot Studio token: {copilottoken}")
 
         copilot_client = CopilotClient(settings, copilottoken["access_token"])
         return copilot_client
@@ -105,10 +104,12 @@ class GenericAgentExecutor(AgentExecutor):
         self._active_threads: dict[
             str, str
         ] = {}  # context_id -> thread_id mapping
+        self.access_token = None
 
     async def _get_or_create_agent(self, access_token: str) -> CopilotStudioAgent:
         """Get or create the Copilot Studio agent."""
-        if not self._agent:
+        if not self._agent or self.access_token != access_token:
+            logging.info("Creating new Copilot Studio agent instance...")
             self._agent = CopilotStudioAgent(access_token)
         return self._agent
 
