@@ -25,8 +25,8 @@ import uuid
 logger = logging.getLogger(__name__)
 
 class GenericThread():
-    def __init__(self):
-        self.id = uuid.uuid4()
+    def __init__(self, id=uuid.uuid4()):
+        self.id = id
         self.messages = [] # list of strings
 
 class CopilotStudioAgent:
@@ -46,6 +46,11 @@ class CopilotStudioAgent:
         response = await self.invoke(user_message, self.access_token)
         logging.info(f'Agent received message: {user_message} in thread {thread_id}')
         logging.info(f'Agent responding with: {response} in thread {thread_id}')
+        if thread_id not in self.threads:
+            logger.warning(f'Thread ID {thread_id} not found. Creating new thread.')
+            gt = GenericThread(id=thread_id)
+            self.threads[thread_id] = gt
+
         self.threads[thread_id].messages.append(user_message)
         self.threads[thread_id].messages.append(response)
         return self.threads[thread_id].messages
@@ -110,6 +115,7 @@ class GenericAgentExecutor(AgentExecutor):
         """Get or create the Copilot Studio agent."""
         if not self._agent or self.access_token != access_token:
             logging.info("Creating new Copilot Studio agent instance...")
+            self.access_token = access_token
             self._agent = CopilotStudioAgent(access_token)
         return self._agent
 
